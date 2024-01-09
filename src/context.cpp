@@ -98,6 +98,31 @@ struct context_initializer {
     }
 };
 
+//CHANGE START
+static context::profiler_callbacks profiler_callbacks_;
+static bool profiler_callbacks_set_ = false;
+
+void context::set_profiler_callbacks(const context::profiler_callbacks& callbacks) {
+    profiler_callbacks_ = callbacks;
+    profiler_callbacks_set_ = true;
+}
+void context::profiler_unregister_context(context* current_context) {
+    if (profiler_callbacks_set_) {
+        profiler_callbacks_.unregister_context(current_context);
+    }
+}
+void context::profiler_begin_context_switch(context* current_context, context* new_context) {
+    if (profiler_callbacks_set_) {
+        profiler_callbacks_.begin_context_switch(current_context, new_context);
+    }
+}
+void context::profiler_end_context_switch(context* current_context) {
+    if (profiler_callbacks_set_) {
+        profiler_callbacks_.end_context_switch(current_context);
+    }
+}
+//CHANGE END
+
 // zero-initialization
 thread_local context * context_initializer::active_{ nullptr };
 thread_local std::size_t context_initializer::counter_{ 0 };
@@ -138,9 +163,15 @@ context::resume() noexcept {
     // context_initializer::active_ will point to `this`
     // prev will point to previous active context
     std::swap( context_initializer::active_, prev);
+    //CHANGE START
+    profiler_begin_context_switch(prev, context_initializer::active_);
+    //CHANGE END
     // pass pointer to the context that resumes `this`
     std::move( c_).resume_with([prev](boost::context::fiber && c){
                 prev->c_ = std::move( c);
+                //CHANGE START
+                profiler_end_context_switch(context::active());
+                //CHANGE END
                 return boost::context::fiber{};
             });
 }
@@ -151,9 +182,15 @@ context::resume( detail::spinlock_lock & lk) noexcept {
     // context_initializer::active_ will point to `this`
     // prev will point to previous active context
     std::swap( context_initializer::active_, prev);
+    //CHANGE START
+    profiler_begin_context_switch(prev, context_initializer::active_);
+    //CHANGE END
     // pass pointer to the context that resumes `this`
     std::move( c_).resume_with([prev,&lk](boost::context::fiber && c){
                 prev->c_ = std::move( c);
+                //CHANGE START
+                profiler_end_context_switch(context::active());
+                //CHANGE END
                 lk.unlock();
                 return boost::context::fiber{};
             });
@@ -165,9 +202,15 @@ context::resume( context * ready_ctx) noexcept {
     // context_initializer::active_ will point to `this`
     // prev will point to previous active context
     std::swap( context_initializer::active_, prev);
+    //CHANGE START
+    profiler_begin_context_switch(prev, context_initializer::active_);
+    //CHANGE END
     // pass pointer to the context that resumes `this`
     std::move( c_).resume_with([prev,ready_ctx](boost::context::fiber && c){
                 prev->c_ = std::move( c);
+                //CHANGE START
+                profiler_end_context_switch(context::active());
+                //CHANGE END
                 context::active()->schedule( ready_ctx);
                 return boost::context::fiber{};
             });
@@ -212,9 +255,15 @@ context::suspend_with_cc() noexcept {
     // context_initializer::active_ will point to `this`
     // prev will point to previous active context
     std::swap( context_initializer::active_, prev);
+    //CHANGE START
+    //profiler_begin_context_switch is not needed as the context should already be unregistered by terminate
+    //CHANGE END
     // pass pointer to the context that resumes `this`
     return std::move( c_).resume_with([prev](boost::context::fiber && c){
                 prev->c_ = std::move( c);
+                //CHANGE START
+                profiler_end_context_switch(context::active());
+                //CHANGE END
                 return boost::context::fiber{};
             });
 }
@@ -233,6 +282,9 @@ context::terminate() noexcept {
         data.second.do_cleanup();
     }
     fss_data_.clear();
+    //CHANGE START
+    profiler_unregister_context(this);
+    //CHANGE END
     // switch to another context
     return get_scheduler()->terminate( lk, this);
 }

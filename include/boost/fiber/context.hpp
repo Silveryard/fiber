@@ -223,6 +223,21 @@ public:
         }
     };
 
+    //CHANGE START
+    struct profiler_callbacks {
+        //TODO void (*register_context)(context*);
+        void (*unregister_context)(context*);
+        void (*begin_context_switch)(context*, context*);
+        void (*end_context_switch)(context*);
+    };
+
+    static void set_profiler_callbacks(const profiler_callbacks& callbacks);
+    //TODO static void profiler_register_context(context* current_context);
+    static void profiler_unregister_context(context* current_context);
+    static void profiler_begin_context_switch(context* current_context, context* new_context);
+    static void profiler_end_context_switch(context* current_context);
+    //CHANGE END
+
     static context * active() noexcept;
 
     static void reset_active() noexcept;
