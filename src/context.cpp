@@ -106,6 +106,10 @@ void context::set_profiler_callbacks(const context::profiler_callbacks& callback
     profiler_callbacks_ = callbacks;
     profiler_callbacks_set_ = true;
 }
+void context::clear_profiler_callbacks() {
+    profiler_callbacks_ = {};
+    profiler_callbacks_set_ = false;
+}
 void context::profiler_unregister_context(context* current_context) {
     if (profiler_callbacks_set_) {
         profiler_callbacks_.unregister_context(current_context);

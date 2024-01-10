@@ -232,6 +232,7 @@ public:
     };
 
     static void set_profiler_callbacks(const profiler_callbacks& callbacks);
+    static void clear_profiler_callbacks();
     //TODO static void profiler_register_context(context* current_context);
     static void profiler_unregister_context(context* current_context);
     static void profiler_begin_context_switch(context* current_context, context* new_context);
